@@ -1,3 +1,4 @@
+{$DEFINE  NumericEdit}
 unit numericedit;
 
 {$mode objfpc}{$H+}
@@ -20,9 +21,6 @@ type
   //        *                                                      //
   //                                                               //
   ///////////////////////////////////////////////////////////////////
-
-  { TNumericEdit }
-
   TNumericEdit = Class(TCustomEdit)
   private
     FCurrencyValue: Boolean;
@@ -67,12 +65,15 @@ type
     property MaxValue         : Double       read FMaxValue      write SetMaxValue;
     property MinValue         : Double       read FMinValue      write SetMinValue;
     property Value            : Double       read GetValue       write SetValue;
-    property CurrencyValue    : Boolean      read FCurrencyValue write SetCurrencyValue;
+    property CurrencyValue    : Boolean      read FCurrencyValue write SetCurrencyValue default False;
     property OnValidChange    : TNotifyEvent read FValidChange   write FValidChange;
     property OnInvalidEntry   : TNotifyEvent read FInvalidEntry  write FInvalidEntry;
+    property Align;
+    property Anchors;
     property AutoSelect;
     property AutoSize;
     property BorderStyle;
+    property BorderSpacing;
     property Color;
     property DragCursor;
     property DragMode;
@@ -115,6 +116,7 @@ type
 
 procedure Register;
 
+{ TNumericEdit }
 
 implementation
 
@@ -177,6 +179,7 @@ begin
   FormatSettings.ThousandSeparator := '.';
   FormatSettings.DecimalSeparator := ',';
   inherited Create(AOwner);
+  parent := TWinControl(AOwner);
   DecimalSeparator:= ',';
   ControlStyle := ControlStyle - [csSetCaption];
   Text:= '0' + DecimalSeparator + '00';
@@ -235,9 +238,13 @@ procedure TNumericEdit.KeyPress(var Key: Char);
 var
   X: Integer;
   N: Boolean;
+  KeyStart : Char;
 begin
   if (Key = #13) or (Key = #27) then
+    begin
+     KeyStart := Key;
      Key := #0;
+    end;
   if ReadOnly then exit;
   { Ctrl C, V and X. }
   if Key in [#3, #22, #24] then exit;
@@ -334,6 +341,7 @@ begin
                                          Key:= #0;
                                        end;
              end;
+inherited keypress(KeyStart);
 end;
 
 procedure TNumericEdit.KeyDown(var Key: Word; Shift: TShiftState);
@@ -382,7 +390,6 @@ begin
           end;
     end;
   inherited KeyDown(Key, Shift)
-
 end;
 
 procedure TNumericEdit.DeleteKey(Key: Word);
@@ -464,13 +471,39 @@ begin
 end;
 
 function TNumericEdit.GetAsCurrency: Currency;
+var
+  AText : string;
 begin
-  Result := StrToCurr(Text);
+  if FCurrencyValue then
+      AText   := ReplaceStr(Text,'R$ ','')
+  else
+     AText := text;
+  if DecimalSeparator = '.' then
+    AText := Replacestr(AText,FormatSettings.ThousandSeparator,'');
+  if DecimalSeparator = ',' then
+    begin
+      AText := Replacestr(AText,FormatSettings.ThousandSeparator,'');
+      AText := Replacestr(AText,FormatSettings.ThousandSeparator,FormatSettings.DecimalSeparator);
+    end;
+  Result := StrToFloat(AText);
 end;
 
 function TNumericEdit.GetAsFloat: Double;
+var
+  AText : string;
 begin
-  Result := StrToFloat(Text);
+  if FCurrencyValue then
+      AText   := ReplaceStr(Text,'R$ ','')
+  else
+     AText := text;
+  if DecimalSeparator = '.' then
+    AText := Replacestr(AText,FormatSettings.ThousandSeparator,'');
+  if DecimalSeparator = ',' then
+    begin
+      AText := Replacestr(AText,FormatSettings.ThousandSeparator,'');
+      AText := Replacestr(AText,FormatSettings.ThousandSeparator,FormatSettings.DecimalSeparator);
+    end;
+  Result := StrToFloat(AText);
 end;
 
 function TNumericEdit.GetAsFormatCurrency: String;
@@ -480,7 +513,10 @@ end;
 
 function TNumericEdit.GetAsInteger: Integer;
 begin
-  Result := trunc(StrToFloat(Text));
+  if FCurrencyValue then
+     Result := Trunc(StrToFloat(ReplaceStr(Text,'R$ ','')))
+  else
+     Result := trunc(StrToFloat(Text));
 end;
 
 function TNumericEdit.GetAsRound: Double;
@@ -535,22 +571,22 @@ end;
 procedure TNumericEdit.SetAsCurrency(AValue: Currency);
 begin
   if text <> '' then
-     Text := FormatFloat(FormatMask, Value);
+     Text := FormatFloat(FormatMask, AValue);
 end;
 
 procedure TNumericEdit.SetAsFloat(AValue: Double);
 begin
   if text <> '' then
-     Text := FormatFloat(FormatMask, Value);
+     Text := FormatFloat(FormatMask, AValue);
 end;
 
 procedure TNumericEdit.SetAsInteger(AValue: Integer);
 begin
   if text <> '' then
-     Text := FormatFloat(FormatMask, Value);
+     Text := FormatFloat(FormatMask, AValue);
 end;
 
-Function TNumericEdit.ConfigCurrency(AValue : String; Ative : boolean) : String;
+function TNumericEdit.ConfigCurrency(AValue: String; Ative: boolean): String;
 var
    vlr : Extended;
    I: Integer;
@@ -564,7 +600,6 @@ begin
                   end;
         True   :
                   begin
-
                            for I := 0 to Length(AValue) - 1 do
                                if not(AValue[I] in ['0' .. '9']) then
                                   delete(AValue, I, 1);
@@ -618,8 +653,6 @@ begin
     onChange:= ChangeEvent;
   end;
 end;
-
-
 
 end.
 
